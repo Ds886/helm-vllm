@@ -18,9 +18,24 @@ vllmConfig:
       vllmResourcesLimitCpu: "4"
       vllmResourcesLimitMem: "10G"
       vllmResourcesLimitGpu: "1"
-      
+
 hf:
   hfSecretName: "hf-token-secret"
+
+storage:
+  # Additional volumes on the output Deployment definition.
+  volumes: 
+    volumesCache:
+      volumeCacheName: "mistral-7b"
+      volumeCacheSize: "50Gi"
+    volumesShm:
+      volumesShmSize: "2Gi"
+    volumesAdditional: []
+
+  volumeMounts: []
+  # - name: foo
+  #   mountPath: "/etc/foo"
+  #   readOnly: true
 
 general:
   nodeSelector: {}
@@ -30,12 +45,6 @@ general:
   affinity: {}
 
 pod:
-  image:
-    repository: vllm/vllm-openai
-    pullPolicy: IfNotPresent
-    # Overrides the image tag whose default is the chart appVersion.
-    tag: "v0.6.4"
-
   replicaCount: 1
   imagePullSecrets: []
   nameOverride: ""
@@ -44,6 +53,11 @@ pod:
   podAnnotations: {}
   podLabels:
     app: mistral-7b
+  image:
+    repository: vllm/vllm-openai
+    # Overrides the image tag whose default is the chart appVersion.
+    tag: "v0.6.4"
+    pullPolicy: IfNotPresent
   security:
     securityPodSecurityContext: {}
       # fsGroup: 2000
@@ -109,19 +123,3 @@ health:
       port: 8080
     initialDelaySeconds: 60
     periodSeconds: 10
-
-storage:
-  # Additional volumes on the output Deployment definition.
-  volumes: 
-    volumesCache:
-      volumeCacheName: "mistral-7b"
-      volumeCacheSize: "50Gi"
-    volumesShm:
-      volumesShmSize: "2Gi"
-    volumesAdditional: []
-
-  volumeMounts: []
-  # - name: foo
-  #   mountPath: "/etc/foo"
-  #   readOnly: true
-

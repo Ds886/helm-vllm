@@ -1,6 +1,6 @@
 apiVersion: v2
 name: vllm
-description: A Helm chart for Kubernetes
+description: A Helm chart for vllm
 
 # A chart can be either an 'application' or a 'library' chart.
 #
