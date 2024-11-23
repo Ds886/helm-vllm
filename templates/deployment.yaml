@@ -1,0 +1,98 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "vllm.fullname" . }}
+  labels:
+    {{- include "vllm.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.pod.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "vllm.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "vllm.labels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.pod.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "vllm.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.pod.security.securityPodSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.pod.security.securityPodSecurityContext | nindent 12 }}
+          image: "{{ .Values.pod.image.repository }}:{{ .Values.pod.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.pod.image.pullPolicy }}
+          command: ["/bin/sh", "-c"]
+          args: [
+              "vllm serve {{ .Values.vllmConfig.vllmModel  }} {{- if .Values.vllmConfig.vllmIsTrustRemoteCode }} --trust-remote-code{{- end}} {{- if .Values.vllmConfig.vllmIsEnableChunkPrefill }} --enable-chunked-prefill{{- end }} --max_num_batched_tokens {{ default .Values.vllmConfig.vllmMaxNumBatchedTokens }}"
+            ]
+          
+          env:
+          - name: HUGGING_FACE_HUB_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: {{- if .Values.hf }} {{ default .Values.hf.hfSecretName  "hf-token-secret" }}{{- else }} "hf-token-secret" {{- end }}
+                key: token
+          ports:
+            - name: http
+              containerPort: {{ .Values.network.service.port }}
+              protocol: TCP
+          livenessProbe:
+            {{- toYaml .Values.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.readinessProbe | nindent 12 }}
+          resources:
+            limits: 
+              cpu: "{{ default .Values.vllmConfig.vllmResoruces.vllmResourcesLimit.vllmResourcesLimitCpu }}"
+              memory: "{{ default .Values.vllmConfig.vllmResoruces.vllmResourcesLimit.vllmResourcesLimitMem }}"
+              {{- if .Values.vllmConfig.vllmResoruces.vllmResourcesGpuEnabled }}{{ .Values.vllmConfig.vllmResources.vllmResourcesGpuResourcesNvidiaResourceName }}: "{{ default .Values.vllmConfig.vllmResoruces.vllmResourcesLimit.vllmResourcesLimitGpu }}"{{- end }}
+            requests: 
+              cpu: "{{ default .Values.vllmConfig.vllmResoruces.vllmResourcesRequest.vllmResourcesRequestCpu}}"
+              memory: "{{ default .Values.vllmConfig.vllmResoruces.vllmResourcesRequest.vllmResourcesRequestMem}}"
+              {{- if .Values.vllmConfig.vllmResoruces.vllmResourcesGpuEnabled }}{{ .Values.vllmConfig.vllmResources.vllmResourcesGpuResourcesNvidiaResourceName }}: "{{ default .Values.vllmConfig.vllmResoruces.vllmResourcesRequest.vllmResourceRequestGpu }}"{{- end }}
+
+          volumeMounts:
+            - mountPath: "/root/.cache/huggingface"
+              name: "cache-volume"
+            - mountPath: "/dev/shm"
+              name: "shm"
+          {{- with .Values.volumeMounts }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      volumes:
+        - name: cache-volume
+          persistentVolumeClaim:
+            claimName: {{ .Values.storage.volumes.volumesCache.volumeCacheName }}
+        - name: shm
+          emptyDir:
+            medium: Memory
+            sizeLimit: {{- if .Values.storage.volumes.volumesShm }} {{ .Values.storage.volumes.volumesShm.volumesShmSize | quote }}{{- else }} "2Gi"{{- end }}
+      {{- with .Values.storage.volumes.volumesAdditional }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.general.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.general.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.general.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

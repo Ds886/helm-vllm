@@ -1,0 +1,14 @@
+---
+# Source: vllm/templates/pvc.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mistral-7b
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 50Gi
+  storageClassName: default
+  volumeMode: Filesystem
